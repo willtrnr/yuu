@@ -55,10 +55,10 @@ case class ReadError(errors: Seq[String] = Seq.empty) extends ReadResult[Nothing
 
 object ReadResult {
 
-  def success[A](a: A): ReadResult[A] = ReadSuccess(a)
+  @inline def success[A](a: A): ReadResult[A] = ReadSuccess(a)
 
-  def error[A]: ReadResult[A] = ReadError()
-  def error[A](error: String): ReadResult[A] = ReadError(Seq(error))
-  def error[A](errors: Seq[String]): ReadResult[A] = ReadError(errors)
+  @inline def error[A]: ReadResult[A] = ReadError()
+  @inline def error[A](error: String): ReadResult[A] = ReadError(Seq(error))
+  @inline def error[A](errors: Seq[String]): ReadResult[A] = ReadError(errors)
 
 }

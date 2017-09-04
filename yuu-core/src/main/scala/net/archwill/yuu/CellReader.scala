@@ -1,8 +1,22 @@
 package net.archwill.yuu
 
+import org.apache.poi.ss.usermodel.{Cell, CellType}
+
 trait CellReader[A] { self =>
 
-  def read(cell: CellValue): ReadResult[A]
+  def read(cell: Cell): ReadResult[A]
+
+  def at(idx: Int): RowReader[A] = RowReader[A] { row =>
+    if (idx >= 0) self.read(row.getCell(idx)) else ReadResult.error("Invalid column reference")
+  }
+
+  def at(col: String): RowReader[A] = RowReader[A] { row =>
+    Util.columnToIndex(col) map { i =>
+      self.read(row.getCell(i))
+    } getOrElse {
+      ReadResult.error("Invalid column reference")
+    }
+  }
 
   def map[B](f: A => B): CellReader[B] =
     CellReader[B] { cell => self.read(cell).map(f) }
@@ -11,21 +25,21 @@ trait CellReader[A] { self =>
     CellReader[B] { cell => self.read(cell).flatMap(a => f(a).read(cell)) }
 
   def filter(error: => String)(p: A => Boolean): CellReader[A] =
-    CellReader[A] { cell => self.read(cell).filter(p) orElse ReadError(Seq(error)) }
+    CellReader[A] { cell => self.read(cell).filter(p) orElse ReadResult.error(error) }
 
   def filter(p: A => Boolean): CellReader[A] =
     filter("Did not match filter")(p)
 
   def filterNot(error: => String)(p: A => Boolean): CellReader[A] =
-    CellReader[A] { cell => self.read(cell).filterNot(p) orElse ReadError(Seq(error)) }
+    CellReader[A] { cell => self.read(cell).filterNot(p) orElse ReadResult.error(error) }
 
   def filterNot(p: A => Boolean): CellReader[A] =
     filterNot("Did not match filter")(p)
 
   def collect[B](error: => String)(pf: PartialFunction[A, B]): CellReader[B] = CellReader[B] { cell =>
     self.read(cell) flatMap {
-      case a if pf.isDefinedAt(a) => ReadSuccess(pf(a))
-      case _ => ReadError(Seq(error))
+      case a if pf.isDefinedAt(a) => ReadResult.success(pf(a))
+      case _ => ReadResult.error(error)
     }
   }
 
@@ -36,10 +50,10 @@ trait CellReader[A] { self =>
     self.read(cell) orElse other.read(cell)
   }
 
-  def compose[B <: CellValue](fb: CellReader[B]): CellReader[A] =
+  def compose[B <: Cell](fb: CellReader[B]): CellReader[A] =
     CellReader[A] { cell => fb.read(cell).flatMap(b => self.read(b)) }
 
-  def andThen[B](fb: CellReader[B])(implicit ev: A <:< CellValue): CellReader[B] =
+  def andThen[B](fb: CellReader[B])(implicit ev: A <:< Cell): CellReader[B] =
     fb.compose(this.map(ev))
 
 }
@@ -48,61 +62,59 @@ object CellReader {
 
   import ReadResult._
 
-  def apply[A](f: CellValue => ReadResult[A]): CellReader[A] = new CellReader[A] {
-    def read(cell: CellValue): ReadResult[A] = f(cell)
+  def apply[A](f: Cell => ReadResult[A]): CellReader[A] = new CellReader[A] {
+    def read(cell: Cell): ReadResult[A] = f(cell)
   }
 
   def pure[A](v: A): CellReader[A] = apply { _ => success(v) }
 
-  @inline def of[A](implicit c: CellReader[A]): CellReader[A] = c
-  
-  implicit val byteCellReader: CellReader[Byte] = apply {
-    case CellNumeric(d) if d.isValidByte => success(d.toByte)
-    case _: CellNumeric => error("Not a valid byte")
-    case _ => error("Expected numeric type")
+  @inline def of[A](implicit cr: CellReader[A]): CellReader[A] = cr
+
+  implicit val booleanCellReader: CellReader[Boolean] = apply { cell =>
+    if (cell.getCellTypeEnum == CellType.BOOLEAN || (cell.getCellTypeEnum == CellType.FORMULA && cell.getCachedFormulaResultTypeEnum == CellType.BOOLEAN)) {
+      success(cell.getBooleanCellValue)
+    } else {
+      error("Expected boolean cell")
+    }
   }
 
-  implicit val shortCellReader: CellReader[Short] = apply {
-    case CellNumeric(d) if d.isValidShort => success(d.toShort)
-    case _: CellNumeric => error("Not a valid short")
-    case _ => error("Expected numeric type")
+  implicit val stringCellReader: CellReader[String] = apply { cell =>
+    if (cell.getCellTypeEnum == CellType.STRING || (cell.getCellTypeEnum == CellType.FORMULA && cell.getCachedFormulaResultTypeEnum == CellType.STRING)) {
+      success(cell.getStringCellValue)
+    } else {
+      error("Expected string cell")
+    }
   }
 
-  implicit val intCellReader: CellReader[Int] = apply {
-    case CellNumeric(d) if d.isValidInt => success(d.toInt)
-    case _: CellNumeric => error("Not a valid integer")
-    case _ => error("Expected numeric type")
+  implicit val doubleCellReader: CellReader[Double] = apply { cell =>
+    if (cell.getCellTypeEnum == CellType.NUMERIC || (cell.getCellTypeEnum == CellType.FORMULA && cell.getCachedFormulaResultTypeEnum == CellType.NUMERIC)) {
+      success(cell.getNumericCellValue)
+    } else {
+      error("Expected numeric cell")
+    }
   }
 
-  implicit val longCellReader: CellReader[Long] = apply {
-    case CellNumeric(d) if d.isWhole => success(d.toLong)
-    case _: CellNumeric => error("Not a valid long")
-    case _ => error("Expected numeric type")
-  }
+  implicit val byteCellReader: CellReader[Byte] =
+    doubleCellReader.collect("Not a valid byte") { case d if d.isValidByte => d.toByte }
 
-  implicit val floatCellReader: CellReader[Float] = apply {
-    case CellNumeric(d) => success(d.toFloat)
-    case _ => error("Expected numeric type")
-  }
+  implicit val shortCellReader: CellReader[Short] =
+    doubleCellReader.collect("Not a valid short") { case d if d.isValidShort => d.toShort }
 
-  implicit val doubleCellReader: CellReader[Double] = apply {
-    case CellNumeric(d) => success(d)
-    case _ => error("Expected numeric type")
-  }
+  implicit val intCellReader: CellReader[Int] =
+    doubleCellReader.collect("Not a valid integer") { case d if d.isValidInt => d.toInt }
 
-  implicit val booleanCellReader: CellReader[Boolean] = apply {
-    case CellBoolean(b) => success(b)
-    case _ => error("Expected boolean type")
-  }
+  implicit val longCellReader: CellReader[Long] =
+    doubleCellReader.collect("Not a valid long") { case d if d.isWhole => d.toLong }
 
-  implicit val stringCellReader: CellReader[String] = apply {
-    case CellString(s) => success(s)
-    case _ => error("Expected string type")
-  }
+  implicit val floatCellReader: CellReader[Float] =
+    doubleCellReader.map(_.toFloat)
 
-  implicit def optionCellReader[A](implicit cr: CellReader[A]): CellReader[Option[A]] = apply {
-    case CellBlank => success(None)
-    case c => cr.read(c).map(Option(_))
+  implicit def optionCellReader[A](implicit cr: CellReader[A]): CellReader[Option[A]] = apply { cell =>
+    if (cell.getCellTypeEnum == CellType.BLANK || (cell.getCellTypeEnum == CellType.FORMULA && cell.getCachedFormulaResultTypeEnum == CellType.BLANK)) {
+      success(None)
+    } else {
+      cr.read(cell).map(Option(_))
+    }
   }
 
 }
