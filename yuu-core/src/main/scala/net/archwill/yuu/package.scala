@@ -1,3 +1,3 @@
 package net.archwill
 
-package object yuu extends ToCellOps with ToRowOps
+package object yuu extends ToCellOps with ToRowOps with ToSheetOps

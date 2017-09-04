@@ -1,8 +1,9 @@
 package net.archwill.yuu
 
 package object scalaz
-  extends CellReaderInstances
+  extends ReadResultInstances
+  with CellReaderInstances
   with RowReaderInstances
-  with ReadResultInstances
+  with SheetReaderInstances
   with WorkbookIOInstances
   with SheetIOInstances

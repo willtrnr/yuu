@@ -4,7 +4,9 @@ import Dependencies._
 lazy val root = (project in file("."))
   .settings(commonSettings)
   .settings(
-    name := "yuu"
+    name := "yuu",
+
+    publishArtifact := false
   )
   .aggregate(core, scalaz)
   .dependsOn(core, scalaz)
@@ -15,7 +17,8 @@ lazy val core = (project in file("./yuu-core"))
     name := "yuu-core",
     
     libraryDependencies ++= Seq(
-      "org.apache.poi" % "poi" % poiVersion
+      "org.apache.poi" % "poi" % poiVersion,
+      "org.apache.poi" % "poi-ooxml" % poiVersion
     )
   )
 

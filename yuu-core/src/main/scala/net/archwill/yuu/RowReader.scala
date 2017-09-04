@@ -1,10 +1,25 @@
 package net.archwill.yuu
 
+import scala.collection.JavaConverters._
+
 import org.apache.poi.ss.usermodel.Row
 
 trait RowReader[A] { self =>
 
   def read(row: Row): ReadResult[A]
+
+  def single: SheetReader[A] =
+    SheetReader[A] { sheet => self.read(sheet.getRow(sheet.getFirstRowNum)) }
+
+  def single(idx: Int): SheetReader[A] =
+    SheetReader[A] { sheet => self.read(sheet.getRow(idx)) }
+
+  def all: SheetReader[List[A]] =
+    SheetReader[List[A]] { sheet =>
+      sheet.rowIterator.asScala.foldLeft(ReadResult.success(List.empty[A])) { (la, a) =>
+        la.flatMap(l => self.read(a).map(l :+ _))
+      }
+    }
 
   def map[B](f: A => B): RowReader[B] =
     RowReader[B] { row => self.read(row).map(f) }

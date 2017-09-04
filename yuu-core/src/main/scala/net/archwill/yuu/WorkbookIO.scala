@@ -36,4 +36,10 @@ object WorkbookIO {
   def getSheet(name: String): WorkbookIO[Sheet] =
     apply(_.getSheet(name))
 
+  def withSheet[A](idx: Int)(sio: SheetIO[A]): WorkbookIO[A] =
+    getSheet(idx).map(sio.run)
+
+  def withSheet[A](name: String)(sio: SheetIO[A]): WorkbookIO[A] =
+    getSheet(name).map(sio.run)
+
 }

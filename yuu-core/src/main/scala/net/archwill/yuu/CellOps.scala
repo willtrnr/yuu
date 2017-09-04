@@ -7,9 +7,7 @@ final class CellOps(val self: Cell) extends AnyVal {
   def asOpt[A](implicit cr: CellReader[A]): Option[A] = cr.read(self).toOption
   def asEither[A](implicit cr: CellReader[A]): Either[Seq[String], A] = cr.read(self).toEither
 
-  def valueType: CellType =
-    if (self.getCellTypeEnum == CellType.FORMULA) self.getCachedFormulaResultTypeEnum
-    else self.getCellTypeEnum
+  def valueType: CellType = if (self.getCellTypeEnum == CellType.FORMULA) self.getCachedFormulaResultTypeEnum else self.getCellTypeEnum
 }
 
 trait ToCellOps {
