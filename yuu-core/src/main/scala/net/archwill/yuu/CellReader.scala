@@ -71,7 +71,7 @@ object CellReader {
   @inline def of[A](implicit cr: CellReader[A]): CellReader[A] = cr
 
   implicit val booleanCellReader: CellReader[Boolean] = apply { cell =>
-    if (cell.getCellTypeEnum == CellType.BOOLEAN || (cell.getCellTypeEnum == CellType.FORMULA && cell.getCachedFormulaResultTypeEnum == CellType.BOOLEAN)) {
+    if (cell.valueType == CellType.BOOLEAN) {
       success(cell.getBooleanCellValue)
     } else {
       error("Expected boolean cell")
@@ -79,7 +79,7 @@ object CellReader {
   }
 
   implicit val stringCellReader: CellReader[String] = apply { cell =>
-    if (cell.getCellTypeEnum == CellType.STRING || (cell.getCellTypeEnum == CellType.FORMULA && cell.getCachedFormulaResultTypeEnum == CellType.STRING)) {
+    if (cell.valueType == CellType.STRING) {
       success(cell.getStringCellValue)
     } else {
       error("Expected string cell")
@@ -87,7 +87,7 @@ object CellReader {
   }
 
   implicit val doubleCellReader: CellReader[Double] = apply { cell =>
-    if (cell.getCellTypeEnum == CellType.NUMERIC || (cell.getCellTypeEnum == CellType.FORMULA && cell.getCachedFormulaResultTypeEnum == CellType.NUMERIC)) {
+    if (cell.valueType == CellType.NUMERIC) {
       success(cell.getNumericCellValue)
     } else {
       error("Expected numeric cell")
@@ -110,7 +110,7 @@ object CellReader {
     doubleCellReader.map(_.toFloat)
 
   implicit def optionCellReader[A](implicit cr: CellReader[A]): CellReader[Option[A]] = apply { cell =>
-    if (cell.getCellTypeEnum == CellType.BLANK || (cell.getCellTypeEnum == CellType.FORMULA && cell.getCachedFormulaResultTypeEnum == CellType.BLANK)) {
+    if (cell.valueType == CellType.BLANK) {
       success(None)
     } else {
       cr.read(cell).map(Option(_))

@@ -1,11 +1,15 @@
 package net.archwill.yuu
 
-import org.apache.poi.ss.usermodel.Cell
+import org.apache.poi.ss.usermodel.{Cell, CellType}
 
 final class CellOps(val self: Cell) extends AnyVal {
   def as[A](implicit cr: CellReader[A]): ReadResult[A] = cr.read(self)
   def asOpt[A](implicit cr: CellReader[A]): Option[A] = cr.read(self).toOption
   def asEither[A](implicit cr: CellReader[A]): Either[Seq[String], A] = cr.read(self).toEither
+
+  def valueType: CellType =
+    if (self.getCellTypeEnum == CellType.FORMULA) self.getCachedFormulaResultTypeEnum
+    else self.getCellTypeEnum
 }
 
 trait ToCellOps {
