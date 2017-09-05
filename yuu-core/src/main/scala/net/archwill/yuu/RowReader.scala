@@ -71,28 +71,28 @@ object RowReader {
 
   @inline def of[A](implicit rr: RowReader[A]): RowReader[A] = rr
 
-  def read[A](col: String)(implicit cr: CellReader[A]): RowReader[A] = cr.at(col)
   def read[A](idx: Int)(implicit cr: CellReader[A]): RowReader[A] = cr.at(idx)
+  def read[A](col: String)(implicit cr: CellReader[A]): RowReader[A] = cr.at(col)
 
-  def bool(col: String): RowReader[Boolean] = read[Boolean](col)
   def bool(idx: Int): RowReader[Boolean] = read[Boolean](idx)
+  def bool(col: String): RowReader[Boolean] = read[Boolean](col)
 
-  def str(col: String): RowReader[String] = read[String](col)
   def str(idx: Int): RowReader[String] = read[String](idx)
+  def str(col: String): RowReader[String] = read[String](col)
 
-  def double(col: String): RowReader[Double] = read[Double](col)
   def double(idx: Int): RowReader[Double] = read[Double](idx)
+  def double(col: String): RowReader[Double] = read[Double](col)
 
-  def byte(col: String): RowReader[Byte] = read[Byte](col)
   def byte(idx: Int): RowReader[Byte] = read[Byte](idx)
+  def byte(col: String): RowReader[Byte] = read[Byte](col)
 
-  def short(col: String): RowReader[Short] = read[Short](col)
   def short(idx: Int): RowReader[Short] = read[Short](idx)
+  def short(col: String): RowReader[Short] = read[Short](col)
 
-  def int(col: String): RowReader[Int] = read[Int](col)
   def int(idx: Int): RowReader[Int] = read[Int](idx)
+  def int(col: String): RowReader[Int] = read[Int](col)
 
-  def long(col: String): RowReader[Long] = read[Long](col)
   def long(idx: Int): RowReader[Long] = read[Long](idx)
+  def long(col: String): RowReader[Long] = read[Long](col)
 
 }

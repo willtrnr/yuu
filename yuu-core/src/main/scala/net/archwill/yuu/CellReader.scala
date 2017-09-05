@@ -7,7 +7,10 @@ trait CellReader[A] { self =>
   def read(cell: Cell): ReadResult[A]
 
   def at(idx: Int): RowReader[A] = RowReader[A] { row =>
-    if (idx >= 0) self.read(row.getCell(idx)) else ReadResult.error("Invalid column reference")
+    if (idx >= 0)
+      self.read(row.getCell(idx))
+    else
+      ReadResult.error("Invalid column reference")
   }
 
   def at(col: String): RowReader[A] = RowReader[A] { row =>
@@ -15,6 +18,21 @@ trait CellReader[A] { self =>
       self.read(row.getCell(i))
     } getOrElse {
       ReadResult.error("Invalid column reference")
+    }
+  }
+
+  def at(col: Int, row: Int): SheetReader[A] = SheetReader[A] { sheet =>
+    if (col >= 0 && row >= 0)
+      self.read(sheet.getRow(row).getCell(col))
+    else
+      ReadResult.error("Invalid cell reference")
+  }
+
+  def at(col: String, row: Int): SheetReader[A] = SheetReader[A] { sheet =>
+    Util.columnToIndex(col) filter { _ => row >= 0 } map { c =>
+      self.read(sheet.getRow(row).getCell(c))
+    } getOrElse {
+      ReadResult.error("Invalid cell reference")
     }
   }
 
@@ -108,6 +126,8 @@ object CellReader {
 
   implicit val floatCellReader: CellReader[Float] =
     doubleCellReader.map(_.toFloat)
+
+  // TODO Temporal stuff
 
   implicit def optionCellReader[A](implicit cr: CellReader[A]): CellReader[Option[A]] = apply { cell =>
     if (cell.valueType == CellType.BLANK) {

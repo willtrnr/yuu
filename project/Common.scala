@@ -9,7 +9,7 @@ object Common {
     organization := "net.archwill.yuu",
 
     scalaVersion := "2.12.3",
-    crossScalaVersions := Seq("2.11.13", "2.12.3"),
+    crossScalaVersions := Seq("2.11.11", "2.12.3"),
 
     scalacOptions ++= Seq(
       "-deprecation",

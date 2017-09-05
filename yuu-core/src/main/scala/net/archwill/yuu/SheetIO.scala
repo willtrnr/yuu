@@ -14,10 +14,13 @@ final class SheetIO[A](val run: Sheet => A) {
 
 object SheetIO {
 
-  @inline def apply[A](f: Sheet => A): SheetIO[A] =
+  def apply[A](f: Sheet => A): SheetIO[A] =
     new SheetIO(f)
 
-  @inline def pure[A](a: => A): SheetIO[A] =
+  def pure[A](a: => A): SheetIO[A] =
     apply(_ => a)
+
+  def read[A](implicit sr: SheetReader[A]): SheetIO[ReadResult[A]] =
+    apply(sr.read)
 
 }

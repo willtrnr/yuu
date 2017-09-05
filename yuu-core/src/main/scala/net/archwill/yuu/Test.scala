@@ -12,10 +12,8 @@ object YuuTest extends App {
     qty <- double("C")
   } yield Dummy(id, name, qty)
 
-  val wbkIO: WorkbookIO[ReadResult[Dummy]] = for {
-    s <- WorkbookIO.getSheet("Sheet1")
-    r <- WorkbookIO.pure(s.getRow(1))
-    d <- WorkbookIO.pure(r.as[Dummy])
-  } yield d
+  val wbkIO: WorkbookIO[ReadResult[List[Dummy]]] = for {
+    l <- WorkbookIO.withSheet("Sheet 1")(SheetIO.read[List[Dummy]])
+  } yield l
 
 }

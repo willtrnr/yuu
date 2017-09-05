@@ -56,6 +56,30 @@ object SheetReader {
 
   @inline def of[A](implicit sr: SheetReader[A]): SheetReader[A] = sr
 
+  def read[A](col: Int, row: Int)(implicit cr: CellReader[A]): SheetReader[A] = cr.at(col, row)
+  def read[A](col: String, row: Int)(implicit cr: CellReader[A]): SheetReader[A] = cr.at(col, row)
+
+  def bool(col: Int, row: Int): SheetReader[Boolean] = read[Boolean](col, row) 
+  def bool(col: String, row: Int): SheetReader[Boolean] = read[Boolean](col, row) 
+
+  def str(col: Int, row: Int): SheetReader[String] = read[String](col, row)
+  def str(col: String, row: Int): SheetReader[String] = read[String](col, row)
+
+  def double(col: Int, row: Int): SheetReader[Double] = read[Double](col, row)
+  def double(col: String, row: Int): SheetReader[Double] = read[Double](col, row)
+
+  def byte(col: Int, row: Int): SheetReader[Byte] = read[Byte](col, row)
+  def byte(col: String, row: Int): SheetReader[Byte] = read[Byte](col, row)
+
+  def short(col: Int, row: Int): SheetReader[Short] = read[Short](col, row)
+  def short(col: String, row: Int): SheetReader[Short] = read[Short](col, row)
+
+  def int(col: Int, row: Int): SheetReader[Int] = read[Int](col, row)
+  def int(col: String, row: Int): SheetReader[Int] = read[Int](col, row)
+
+  def long(col: Int, row: Int): SheetReader[Long] = read[Long](col, row)
+  def long(col: String, row: Int): SheetReader[Long] = read[Long](col, row)
+
   implicit def singleSheetReader[A](implicit rr: RowReader[A]): SheetReader[A] = rr.single
 
   implicit def listSheetReader[A](implicit rr: RowReader[A]): SheetReader[List[A]] = rr.all
