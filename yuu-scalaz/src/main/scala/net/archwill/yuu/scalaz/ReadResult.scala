@@ -29,5 +29,5 @@ trait ReadResultInstances {
 }
 
 object readResult extends ReadResultInstances {
-  object readResultSyntax extends syntax.ToReadResultIdOps
+  object readResultSyntax extends syntax.ToReadResultOps with syntax.ToReadResultIdOps
 }

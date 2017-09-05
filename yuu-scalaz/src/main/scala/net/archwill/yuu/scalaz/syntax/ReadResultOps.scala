@@ -1,15 +1,25 @@
 package net.archwill.yuu.scalaz.syntax
 
-import net.archwill.yuu.ReadResult
+import scalaz._
 
-final class ReadResultIdOps[A](private val self: A) extends AnyVal {
+import net.archwill.yuu.{ReadError, ReadResult, ReadSuccess}
 
-  def readSuccess: ReadResult[A] = ReadResult.success(self)
+final class ReadResultOps[A](val self: ReadResult[A]) extends AnyVal {
 
-  def readError[B](implicit ev: A <:< String): ReadResult[B] = ReadResult.error(self)
+  def cata[X](error: Seq[String] => X, success: A => X): X = self.fold(error, success)
+
+  def disjunction: Seq[String] \/ A = self.fold(\/.left, \/.right)
+
+  def validation: Validation[Seq[String], A] = self.fold(Validation.failure, Validation.success)
+
+  def validationNel: ValidationNel[String, A] = self match {
+    case ReadSuccess(a) => Validation.success(a)
+    case ReadError(h :: t) => Validation.failure(NonEmptyList(h, t: _*))
+    case _ => Validation.failureNel("Unknown error")
+  }
 
 }
 
-trait ToReadResultIdOps {
-  implicit def toReadResultIdOps[A](a: A): ReadResultIdOps[A] = new ReadResultIdOps(a)
+trait ToReadResultOps {
+  implicit def toReadResultOps[A](a: ReadResult[A]): ReadResultOps[A] = new ReadResultOps(a)
 }
