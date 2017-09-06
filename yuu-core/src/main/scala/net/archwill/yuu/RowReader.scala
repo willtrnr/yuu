@@ -21,6 +21,13 @@ trait RowReader[A] { self =>
       }
     }
 
+  def all(r: Range): SheetReader[List[A]] =
+    SheetReader[List[A]] { sheet =>
+      r.map(sheet.getRow(_)).foldLeft(ReadResult.success(List.empty[A])) { (la, a) =>
+        la.flatMap(l => self.read(a).map(l :+ _))
+      }
+    }
+
   def map[B](f: A => B): RowReader[B] =
     RowReader[B] { row => self.read(row).map(f) }
 
