@@ -28,6 +28,9 @@ trait RowReader[A] { self =>
       }
     }
 
+  def opt: RowReader[Option[A]] =
+    RowReader[Option[A]] { row => ReadResult.success(self.read(row).toOption) }
+
   def map[B](f: A => B): RowReader[B] =
     RowReader[B] { row => self.read(row).map(f) }
 

@@ -6,6 +6,9 @@ trait SheetReader[A] { self =>
 
   def read(sheet: Sheet): ReadResult[A]
 
+  def opt: SheetReader[Option[A]] =
+    SheetReader[Option[A]] { sheet => ReadResult.success(self.read(sheet).toOption) }
+
   def map[B](f: A => B): SheetReader[B] =
     SheetReader[B] { sheet => self.read(sheet).map(f) }
 

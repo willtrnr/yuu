@@ -42,7 +42,7 @@ trait CellReader[A] { self =>
   }
 
   def opt: CellReader[Option[A]] =
-    CellReader[Option[A]] { cell => self.read(cell) map { Option(_) } orElse { ReadResult.success(None) } }
+    CellReader[Option[A]] { cell => ReadResult.success(self.read(cell).toOption) }
 
   def map[B](f: A => B): CellReader[B] =
     CellReader[B] { cell => self.read(cell).map(f) }
@@ -109,12 +109,12 @@ object CellReader {
     }
   }
 
-  implicit val stringCellReader: CellReader[String] = apply {
-    case c if c.valueType == CellType.BOOLEAN => success(c.getBooleanCellValue.toString)
-    case c if c.valueType == CellType.STRING => success(c.getStringCellValue)
-    case c if c.valueType == CellType.NUMERIC && c.getNumericCellValue.isWhole => success(c.getNumericCellValue.toLong.toString)
-    case c if c.valueType == CellType.NUMERIC => success(c.getNumericCellValue.toString)
-    case _ => error("Expected string cell")
+  implicit val stringCellReader: CellReader[String] = apply { cell =>
+    if (cell.valueType == CellType.STRING) {
+      success(cell.getStringCellValue)
+    } else {
+      error("Expected string cell")
+    }
   }
 
   implicit val doubleCellReader: CellReader[Double] = apply { cell =>
