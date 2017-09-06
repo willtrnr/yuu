@@ -5,6 +5,7 @@ import java.time.Instant
 import java.util.Date
 
 import org.apache.poi.ss.usermodel.{Cell, CellType, DateUtil}
+import org.apache.poi.ss.usermodel.Row.MissingCellPolicy
 
 trait CellReader[A] { self =>
 
@@ -12,14 +13,14 @@ trait CellReader[A] { self =>
 
   def at(idx: Int): RowReader[A] = RowReader[A] { row =>
     if (idx >= 0)
-      self.read(row.getCell(idx))
+      self.read(row.getCell(idx, MissingCellPolicy.CREATE_NULL_AS_BLANK))
     else
       ReadResult.error("Invalid column reference")
   }
 
   def at(col: String): RowReader[A] = RowReader[A] { row =>
     Util.columnToIndex(col) map { i =>
-      self.read(row.getCell(i))
+      self.read(row.getCell(i, MissingCellPolicy.CREATE_NULL_AS_BLANK))
     } getOrElse {
       ReadResult.error("Invalid column reference")
     }
@@ -27,14 +28,14 @@ trait CellReader[A] { self =>
 
   def at(col: Int, row: Int): SheetReader[A] = SheetReader[A] { sheet =>
     if (col >= 0 && row >= 0)
-      self.read(sheet.getRow(row).getCell(col))
+      self.read(sheet.getRow(row).getCell(col, MissingCellPolicy.CREATE_NULL_AS_BLANK))
     else
       ReadResult.error("Invalid cell reference")
   }
 
   def at(col: String, row: Int): SheetReader[A] = SheetReader[A] { sheet =>
     Util.columnToIndex(col) filter { _ => row >= 0 } map { c =>
-      self.read(sheet.getRow(row).getCell(c))
+      self.read(sheet.getRow(row).getCell(c, MissingCellPolicy.CREATE_NULL_AS_BLANK))
     } getOrElse {
       ReadResult.error("Invalid cell reference")
     }
@@ -108,12 +109,12 @@ object CellReader {
     }
   }
 
-  implicit val stringCellReader: CellReader[String] = apply { cell =>
-    if (cell.valueType == CellType.STRING) {
-      success(cell.getStringCellValue)
-    } else {
-      error("Expected string cell")
-    }
+  implicit val stringCellReader: CellReader[String] = apply {
+    case c if c.valueType == CellType.BOOLEAN => success(c.getBooleanCellValue.toString)
+    case c if c.valueType == CellType.STRING => success(c.getStringCellValue)
+    case c if c.valueType == CellType.NUMERIC && c.getNumericCellValue.isWhole => success(c.getNumericCellValue.toLong.toString)
+    case c if c.valueType == CellType.NUMERIC => success(c.getNumericCellValue.toString)
+    case _ => error("Expected string cell")
   }
 
   implicit val doubleCellReader: CellReader[Double] = apply { cell =>
