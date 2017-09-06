@@ -1,18 +1,18 @@
 package net.archwill.yuu
 
 sealed trait ReadResult[+A] {
-  
+
   def get: A
-  
+
   def isSuccess: Boolean
-  def isFailure: Boolean = !isSuccess
+  def isError: Boolean = !isSuccess
 
   def fold[X](error: Seq[String] => X, success: A => X): X
 
   @inline def getOrElse[AA >: A](orElse: => AA): AA =
     if (isSuccess) this.get else orElse
 
-  @inline def orElse[AA >: A](other: ReadResult[AA]): ReadResult[AA] =
+  @inline def orElse[AA >: A](other: => ReadResult[AA]): ReadResult[AA] =
     if (isSuccess) this else other
 
   def map[B](f: A => B): ReadResult[B] = this match {

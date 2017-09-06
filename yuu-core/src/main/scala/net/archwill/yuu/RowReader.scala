@@ -34,17 +34,24 @@ trait RowReader[A] { self =>
   def flatMap[B](f: A => RowReader[B]): RowReader[B] =
     RowReader[B] { row => self.read(row).flatMap(a => f(a).read(row)) }
 
+  def filter(p: A => Boolean): RowReader[A] =
+    RowReader[A] { row => self.read(row).filter(p) orElse ReadResult.error }
+
   def filter(error: => String)(p: A => Boolean): RowReader[A] =
     RowReader[A] { row => self.read(row).filter(p) orElse ReadResult.error(error) }
 
-  def filter(p: A => Boolean): RowReader[A] =
-    filter("Did not match filter")(p)
+  def filterNot(p: A => Boolean): RowReader[A] =
+    RowReader[A] { row => self.read(row).filterNot(p) orElse ReadResult.error }
 
   def filterNot(error: => String)(p: A => Boolean): RowReader[A] =
     RowReader[A] { row => self.read(row).filterNot(p) orElse ReadResult.error(error) }
 
-  def filterNot(p: A => Boolean): RowReader[A] =
-    filterNot("Did not match filter")(p)
+  def collect[B](pf: PartialFunction[A, B]): RowReader[B] = RowReader[B] { row =>
+    self.read(row) flatMap {
+      case a if pf.isDefinedAt(a) => ReadResult.success(pf(a))
+      case _ => ReadResult.error
+    }
+  }
 
   def collect[B](error: => String)(pf: PartialFunction[A, B]): RowReader[B] = RowReader[B] { row =>
     self.read(row) flatMap {
@@ -52,9 +59,6 @@ trait RowReader[A] { self =>
       case _ => ReadResult.error(error)
     }
   }
-
-  def collect[B](pf: PartialFunction[A, B]): RowReader[B] =
-    collect("Did not match function")(pf)
 
   def orElse(other: => RowReader[A]): RowReader[A] = RowReader[A] { row =>
     self.read(row) orElse other.read(row)

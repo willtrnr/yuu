@@ -1,6 +1,10 @@
 package net.archwill.yuu
 
-import org.apache.poi.ss.usermodel.{Cell, CellType}
+import java.sql.{Date => SDate, Time => STime, Timestamp => STimestamp}
+import java.time.Instant
+import java.util.Date
+
+import org.apache.poi.ss.usermodel.{Cell, CellType, DateUtil}
 
 trait CellReader[A] { self =>
 
@@ -36,23 +40,33 @@ trait CellReader[A] { self =>
     }
   }
 
+  def opt: CellReader[Option[A]] =
+    CellReader[Option[A]] { cell => self.read(cell) map { Option(_) } orElse { ReadResult.success(None) } }
+
   def map[B](f: A => B): CellReader[B] =
     CellReader[B] { cell => self.read(cell).map(f) }
 
   def flatMap[B](f: A => CellReader[B]): CellReader[B] =
     CellReader[B] { cell => self.read(cell).flatMap(a => f(a).read(cell)) }
 
+  def filter(p: A => Boolean): CellReader[A] =
+    CellReader[A] { cell => self.read(cell).filter(p) orElse ReadResult.error }
+
   def filter(error: => String)(p: A => Boolean): CellReader[A] =
     CellReader[A] { cell => self.read(cell).filter(p) orElse ReadResult.error(error) }
 
-  def filter(p: A => Boolean): CellReader[A] =
-    filter("Did not match filter")(p)
+  def filterNot(p: A => Boolean): CellReader[A] =
+    CellReader[A] { cell => self.read(cell).filterNot(p) orElse ReadResult.error }
 
   def filterNot(error: => String)(p: A => Boolean): CellReader[A] =
     CellReader[A] { cell => self.read(cell).filterNot(p) orElse ReadResult.error(error) }
 
-  def filterNot(p: A => Boolean): CellReader[A] =
-    filterNot("Did not match filter")(p)
+  def collect[B](pf: PartialFunction[A, B]): CellReader[B] = CellReader[B] { cell =>
+    self.read(cell) flatMap {
+      case a if pf.isDefinedAt(a) => ReadResult.success(pf(a))
+      case _ => ReadResult.error
+    }
+  }
 
   def collect[B](error: => String)(pf: PartialFunction[A, B]): CellReader[B] = CellReader[B] { cell =>
     self.read(cell) flatMap {
@@ -61,12 +75,8 @@ trait CellReader[A] { self =>
     }
   }
 
-  def collect[B](pf: PartialFunction[A, B]): CellReader[B] =
-    collect("Did not match function")(pf)
-
-  def orElse(other: => CellReader[A]): CellReader[A] = CellReader[A] { cell =>
-    self.read(cell) orElse other.read(cell)
-  }
+  def orElse(other: => CellReader[A]): CellReader[A] =
+    CellReader[A] { cell => self.read(cell) orElse other.read(cell) }
 
   def compose[B <: Cell](fb: CellReader[B]): CellReader[A] =
     CellReader[A] { cell => fb.read(cell).flatMap(b => self.read(b)) }
@@ -127,7 +137,25 @@ object CellReader {
   implicit val floatCellReader: CellReader[Float] =
     doubleCellReader.map(_.toFloat)
 
-  // TODO Temporal stuff
+  implicit val dateCellReader: CellReader[Date] = apply { cell =>
+    if (cell.valueType == CellType.NUMERIC && DateUtil.isCellDateFormatted(cell)) {
+      Option(DateUtil.getJavaDate(cell.getNumericCellValue)).fold(error[Date]("Not a valid date"))(success)
+    } else {
+      error("Expected numeric cell")
+    }
+  }
+
+  implicit val sDateCellReader: CellReader[SDate] =
+    dateCellReader.map(d => new SDate(d.getTime))
+
+  implicit val sTimeCellReader: CellReader[STime] =
+    dateCellReader.map(d => new STime(d.getTime))
+
+  implicit val sTimestampCellReader: CellReader[STimestamp] =
+    dateCellReader.map(d => new STimestamp(d.getTime))
+
+  implicit val instantCellReader: CellReader[Instant] =
+    dateCellReader.map(_.toInstant)
 
   implicit def optionCellReader[A](implicit cr: CellReader[A]): CellReader[Option[A]] = apply { cell =>
     if (cell.valueType == CellType.BLANK) {
