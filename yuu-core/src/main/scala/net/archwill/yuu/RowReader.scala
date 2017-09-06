@@ -82,6 +82,8 @@ object RowReader {
 
   @inline def of[A](implicit rr: RowReader[A]): RowReader[A] = rr
 
+  implicit val rowRowReader: RowReader[Row] = apply(ReadResult.success)
+
   def read[A](idx: Int)(implicit cr: CellReader[A]): RowReader[A] = cr.at(idx)
   def read[A](col: String)(implicit cr: CellReader[A]): RowReader[A] = cr.at(col)
 

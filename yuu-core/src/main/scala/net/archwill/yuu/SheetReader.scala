@@ -60,6 +60,8 @@ object SheetReader {
 
   @inline def of[A](implicit sr: SheetReader[A]): SheetReader[A] = sr
 
+  implicit val sheetSheetReader: SheetReader[Sheet] = apply(ReadResult.success)
+
   def read[A](col: Int, row: Int)(implicit cr: CellReader[A]): SheetReader[A] = cr.at(col, row)
   def read[A](col: String, row: Int)(implicit cr: CellReader[A]): SheetReader[A] = cr.at(col, row)
 

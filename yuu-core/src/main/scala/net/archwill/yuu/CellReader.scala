@@ -98,6 +98,8 @@ object CellReader {
 
   @inline def of[A](implicit cr: CellReader[A]): CellReader[A] = cr
 
+  implicit val cellCellReader: CellReader[Cell] = apply(success)
+
   implicit val booleanCellReader: CellReader[Boolean] = apply { cell =>
     if (cell.valueType == CellType.BOOLEAN) {
       success(cell.getBooleanCellValue)
