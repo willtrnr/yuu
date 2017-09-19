@@ -6,6 +6,7 @@ import java.util.Date
 
 import org.apache.poi.ss.usermodel.{Cell, CellType, DateUtil}
 import org.apache.poi.ss.usermodel.Row.MissingCellPolicy
+import org.apache.poi.ss.util.CellReference
 
 trait CellReader[A] { self =>
 
@@ -18,13 +19,8 @@ trait CellReader[A] { self =>
       ReadResult.error("Invalid column reference")
   }
 
-  def at(col: String): RowReader[A] = RowReader[A] { row =>
-    Util.columnToIndex(col) map { i =>
-      self.read(row.getCell(i, MissingCellPolicy.CREATE_NULL_AS_BLANK))
-    } getOrElse {
-      ReadResult.error("Invalid column reference")
-    }
-  }
+  def at(col: String): RowReader[A] =
+    at(CellReference.convertColStringToIndex(col))
 
   def at(col: Int, row: Int): SheetReader[A] = SheetReader[A] { sheet =>
     if (col >= 0 && row >= 0)
@@ -33,13 +29,8 @@ trait CellReader[A] { self =>
       ReadResult.error("Invalid cell reference")
   }
 
-  def at(col: String, row: Int): SheetReader[A] = SheetReader[A] { sheet =>
-    Util.columnToIndex(col) filter { _ => row >= 0 } map { c =>
-      self.read(sheet.getRow(row).getCell(c, MissingCellPolicy.CREATE_NULL_AS_BLANK))
-    } getOrElse {
-      ReadResult.error("Invalid cell reference")
-    }
-  }
+  def at(col: String, row: Int): SheetReader[A] =
+    at(CellReference.convertColStringToIndex(col), row)
 
   def opt: CellReader[Option[A]] =
     CellReader[Option[A]] { cell => ReadResult.success(self.read(cell).toOption) }
