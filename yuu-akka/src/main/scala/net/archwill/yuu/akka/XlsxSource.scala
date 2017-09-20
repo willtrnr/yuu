@@ -20,119 +20,123 @@ import org.apache.poi.ss.util.{CellAddress, CellRangeAddress}
 import org.apache.poi.xssf.eventusermodel.{ReadOnlySharedStringsTable, XSSFReader}
 import org.apache.poi.xssf.model.StylesTable
 
+// Barebone POI Cell implementation to allow using Yuu readers on the results
+case class StreamingCell(address: CellAddress, valueType: String = null, style: CellStyle = null, value: String = null) extends Cell {
+
+  private[this] var row: Row = _
+  private[akka] def withRow(r: Row): StreamingCell = {
+    row = r
+    this
+  }
+
+  override def getAddress(): CellAddress = address
+  override def getBooleanCellValue(): Boolean = value == "1"
+  override def getCachedFormulaResultType(): Int = 1 // FIXME
+  override def getCachedFormulaResultTypeEnum(): CellType = CellType.STRING // FIXME: It's like that in the POI impl though
+  override def getCellStyle(): CellStyle = style
+  override def getCellType(): Int =
+    getCellTypeEnum match {
+      case CellType.NUMERIC => 0
+      case CellType.STRING => 1
+      case CellType.FORMULA => 2
+      case CellType.BLANK => 3
+      case CellType.BOOLEAN => 4
+      case CellType.ERROR => 5
+      case _ => -1
+    }
+  override def getCellTypeEnum(): CellType =
+    valueType match {
+      case null => CellType.BLANK
+      case "b" => CellType.BOOLEAN
+      case "n" | "d" => CellType.NUMERIC
+      case "e" => CellType.ERROR
+      case "s" | "inlineStr" => CellType.STRING
+      case "str" => CellType.STRING // This is actually a formula type column
+      case _ => CellType.NUMERIC
+    }
+  override def getColumnIndex(): Int = address.getColumn
+  override def getDateCellValue(): java.util.Date = DateUtil.getJavaDate(getNumericCellValue)
+  override def getErrorCellValue(): Byte = value.toByte
+  override def getNumericCellValue(): Double = value.toDouble
+  override def getRow(): Row = row
+  override def getRowIndex(): Int = row.getRowNum
+  override def getStringCellValue(): String = value
+
+  // Unsupported API, mostly writing and other rarely used features
+  override def getArrayFormulaRange(): CellRangeAddress = throw new UnsupportedOperationException
+  override def getCellComment(): Comment = throw new UnsupportedOperationException
+  override def getCellFormula(): String = throw new UnsupportedOperationException
+  override def getHyperlink(): Hyperlink = throw new UnsupportedOperationException
+  override def getRichStringCellValue(): RichTextString = throw new UnsupportedOperationException
+  override def getSheet(): Sheet = throw new UnsupportedOperationException
+  override def isPartOfArrayFormulaGroup(): Boolean = throw new UnsupportedOperationException
+  override def removeCellComment(): Unit = throw new UnsupportedOperationException
+  override def removeHyperlink(): Unit = throw new UnsupportedOperationException
+  override def setAsActiveCell(): Unit = throw new UnsupportedOperationException
+  override def setCellComment(x$1: Comment): Unit = throw new UnsupportedOperationException
+  override def setCellErrorValue(x$1: Byte): Unit = throw new UnsupportedOperationException
+  override def setCellFormula(x$1: String): Unit = throw new UnsupportedOperationException
+  override def setCellStyle(x$1: CellStyle): Unit = throw new UnsupportedOperationException
+  override def setCellType(x$1: CellType): Unit = throw new UnsupportedOperationException
+  override def setCellType(x$1: Int): Unit = throw new UnsupportedOperationException
+  override def setCellValue(x$1: Boolean): Unit = throw new UnsupportedOperationException
+  override def setCellValue(x$1: Double): Unit = throw new UnsupportedOperationException
+  override def setCellValue(x$1: java.util.Calendar): Unit = throw new UnsupportedOperationException
+  override def setCellValue(x$1: java.util.Date): Unit = throw new UnsupportedOperationException
+  override def setCellValue(x$1: RichTextString): Unit = throw new UnsupportedOperationException
+  override def setCellValue(x$1: String): Unit = throw new UnsupportedOperationException
+  override def setHyperlink(x$1: Hyperlink): Unit = throw new UnsupportedOperationException
+
+}
+
+// Barebone POI Row implementation to allow using Yuu readers on the results
+case class StreamingRow(num: Int, cells: Map[Int, StreamingCell] = Map.empty, style: CellStyle = null, defaultStyle: CellStyle = null) extends Row {
+
+  private[this] var blank = StreamingCell(address = null, valueType = null, style = defaultStyle, value = null).withRow(this)
+
+  override def cellIterator(): java.util.Iterator[Cell] = cells.valuesIterator.asJava.asInstanceOf[java.util.Iterator[Cell]]
+  override def getCell(cellnum: Int, policy: Row.MissingCellPolicy): Cell =
+    policy match {
+      case Row.MissingCellPolicy.RETURN_NULL_AND_BLANK =>
+        cells.get(cellnum).map(_.withRow(this)).orNull
+      case Row.MissingCellPolicy.RETURN_BLANK_AS_NULL =>
+        cells.get(cellnum).filter(_.valueType ne null).map(_.withRow(this)).orNull
+      case Row.MissingCellPolicy.CREATE_NULL_AS_BLANK =>
+        cells.get(cellnum).map(_.withRow(this)).getOrElse(blank.copy(address = new CellAddress(num, cellnum)))
+    }
+  override def getCell(cellnum: Int): Cell = getCell(cellnum, Row.MissingCellPolicy.RETURN_NULL_AND_BLANK)
+  override def getFirstCellNum(): Short = if (cells.isEmpty) -1 else cells.keysIterator.min.toShort
+  override def getHeight(): Short = 255
+  override def getHeightInPoints(): Float = getHeight.toFloat / 20.0f
+  override def getLastCellNum(): Short = if (cells.isEmpty) -1 else (cells.keysIterator.max + 1).toShort
+  override def getPhysicalNumberOfCells(): Int = cells.size
+  override def getRowNum(): Int = num
+  override def getRowStyle(): CellStyle = style
+  override def getZeroHeight(): Boolean = false
+  override def isFormatted(): Boolean = style ne null
+  override def iterator(): java.util.Iterator[Cell] = cellIterator
+
+  // Unsupported API, mostly writing
+  override def createCell(x$1: Int, x$2: CellType): Cell = throw new UnsupportedOperationException
+  override def createCell(x$1: Int, x$2: Int): Cell = throw new UnsupportedOperationException
+  override def createCell(x$1: Int): Cell = throw new UnsupportedOperationException
+  override def getOutlineLevel(): Int = throw new UnsupportedOperationException
+  override def getSheet(): Sheet = throw new UnsupportedOperationException
+  override def removeCell(x$1: Cell): Unit = throw new UnsupportedOperationException
+  override def setHeight(x$1: Short): Unit = throw new UnsupportedOperationException
+  override def setHeightInPoints(x$1: Float): Unit = throw new UnsupportedOperationException
+  override def setRowNum(x$1: Int): Unit = throw new UnsupportedOperationException
+  override def setRowStyle(x$1: CellStyle): Unit = throw new UnsupportedOperationException
+  override def setZeroHeight(x$1: Boolean): Unit = throw new UnsupportedOperationException
+
+}
+
 class XlsxSource(is: () => InputStream, sheet: String) extends GraphStage[SourceShape[Row]] {
 
   val out: Outlet[Row] = Outlet("XlsxSource")
   override val shape: SourceShape[Row] = SourceShape(out)
 
-  private[this] val factory = XMLInputFactory.newFactory()
-
-  // Bare bone POI Cell implementation to allow using Yuu readers on the results
-  case class StreamingCell(address: CellAddress, valueType: String = null, style: CellStyle = null, value: String = null) extends Cell {
-    private[this] var row: Row = _
-    private[akka] def withRow(r: Row): StreamingCell = {
-      row = r
-      this
-    }
-
-    override def getAddress(): CellAddress = address
-    override def getBooleanCellValue(): Boolean = value == "1"
-    override def getCachedFormulaResultType(): Int = 1 // FIXME
-    override def getCachedFormulaResultTypeEnum(): CellType = CellType.STRING // FIXME: It's like that in the POI impl though
-    override def getCellStyle(): CellStyle = style
-    override def getCellType(): Int =
-      getCellTypeEnum match {
-        case CellType.NUMERIC => 0
-        case CellType.STRING => 1
-        case CellType.FORMULA => 2
-        case CellType.BLANK => 3
-        case CellType.BOOLEAN => 4
-        case CellType.ERROR => 5
-        case _ => -1
-      }
-    override def getCellTypeEnum(): CellType =
-      valueType match {
-        case null => CellType.BLANK
-        case "b" => CellType.BOOLEAN
-        case "d" => CellType.NUMERIC
-        case "e" => CellType.ERROR
-        case "inlineStr" => CellType.STRING
-        case "n" => CellType.NUMERIC
-        case "s" => CellType.STRING
-        case "str" => CellType.NUMERIC
-        case _ => CellType.NUMERIC
-      }
-    override def getColumnIndex(): Int = address.getColumn
-    override def getDateCellValue(): java.util.Date = DateUtil.getJavaDate(getNumericCellValue)
-    override def getErrorCellValue(): Byte = value.toByte
-    override def getNumericCellValue(): Double = value.toDouble
-    override def getRow(): Row = row
-    override def getRowIndex(): Int = row.getRowNum
-    override def getStringCellValue(): String = value
-    // Unsupported API, mostly writing and other rarely used features
-    override def getArrayFormulaRange(): CellRangeAddress = throw new UnsupportedOperationException
-    override def getCellComment(): Comment = throw new UnsupportedOperationException
-    override def getCellFormula(): String = throw new UnsupportedOperationException
-    override def getHyperlink(): Hyperlink = throw new UnsupportedOperationException
-    override def getRichStringCellValue(): RichTextString = throw new UnsupportedOperationException
-    override def getSheet(): Sheet = throw new UnsupportedOperationException
-    override def isPartOfArrayFormulaGroup(): Boolean = throw new UnsupportedOperationException
-    override def removeCellComment(): Unit = throw new UnsupportedOperationException
-    override def removeHyperlink(): Unit = throw new UnsupportedOperationException
-    override def setAsActiveCell(): Unit = throw new UnsupportedOperationException
-    override def setCellComment(x$1: Comment): Unit = throw new UnsupportedOperationException
-    override def setCellErrorValue(x$1: Byte): Unit = throw new UnsupportedOperationException
-    override def setCellFormula(x$1: String): Unit = throw new UnsupportedOperationException
-    override def setCellStyle(x$1: CellStyle): Unit = throw new UnsupportedOperationException
-    override def setCellType(x$1: CellType): Unit = throw new UnsupportedOperationException
-    override def setCellType(x$1: Int): Unit = throw new UnsupportedOperationException
-    override def setCellValue(x$1: Boolean): Unit = throw new UnsupportedOperationException
-    override def setCellValue(x$1: Double): Unit = throw new UnsupportedOperationException
-    override def setCellValue(x$1: java.util.Calendar): Unit = throw new UnsupportedOperationException
-    override def setCellValue(x$1: java.util.Date): Unit = throw new UnsupportedOperationException
-    override def setCellValue(x$1: RichTextString): Unit = throw new UnsupportedOperationException
-    override def setCellValue(x$1: String): Unit = throw new UnsupportedOperationException
-    override def setHyperlink(x$1: Hyperlink): Unit = throw new UnsupportedOperationException
-  }
-
-  // Bare bone POI Row implementation to allow using Yuu readers on the results
-  case class StreamingRow(num: Int, cells: Map[Int, StreamingCell] = Map.empty, style: CellStyle = null, defaultStyle: CellStyle = null) extends Row {
-    private[this] var blank = StreamingCell(address = null, valueType = null, style = defaultStyle, value = null).withRow(this)
-
-    override def cellIterator(): java.util.Iterator[Cell] = cells.valuesIterator.asJava.asInstanceOf[java.util.Iterator[Cell]]
-    override def getCell(cellnum: Int, policy: Row.MissingCellPolicy): Cell =
-      policy match {
-        case Row.MissingCellPolicy.RETURN_NULL_AND_BLANK =>
-          cells.get(cellnum).map(_.withRow(this)).orNull
-        case Row.MissingCellPolicy.RETURN_BLANK_AS_NULL =>
-          cells.get(cellnum).filter(_.valueType ne null).map(_.withRow(this)).orNull
-        case Row.MissingCellPolicy.CREATE_NULL_AS_BLANK =>
-          cells.get(cellnum).map(_.withRow(this)).getOrElse(blank.copy(address = new CellAddress(num, cellnum)))
-      }
-    override def getCell(cellnum: Int): Cell = getCell(cellnum, Row.MissingCellPolicy.RETURN_NULL_AND_BLANK)
-    override def getFirstCellNum(): Short = if (cells.isEmpty) -1 else cells.keysIterator.min.toShort
-    override def getHeight(): Short = 255
-    override def getHeightInPoints(): Float = getHeight.toFloat / 20.0f
-    override def getLastCellNum(): Short = if (cells.isEmpty) -1 else (cells.keysIterator.max + 1).toShort
-    override def getPhysicalNumberOfCells(): Int = cells.size
-    override def getRowNum(): Int = num
-    override def getRowStyle(): CellStyle = style
-    override def getZeroHeight(): Boolean = false
-    override def isFormatted(): Boolean = style ne null
-    override def iterator(): java.util.Iterator[Cell] = cellIterator
-    // Unsupported API, mostly writing
-    override def createCell(x$1: Int, x$2: CellType): Cell = throw new UnsupportedOperationException
-    override def createCell(x$1: Int, x$2: Int): Cell = throw new UnsupportedOperationException
-    override def createCell(x$1: Int): Cell = throw new UnsupportedOperationException
-    override def getOutlineLevel(): Int = throw new UnsupportedOperationException
-    override def getSheet(): Sheet = throw new UnsupportedOperationException
-    override def removeCell(x$1: Cell): Unit = throw new UnsupportedOperationException
-    override def setHeight(x$1: Short): Unit = throw new UnsupportedOperationException
-    override def setHeightInPoints(x$1: Float): Unit = throw new UnsupportedOperationException
-    override def setRowNum(x$1: Int): Unit = throw new UnsupportedOperationException
-    override def setRowStyle(x$1: CellStyle): Unit = throw new UnsupportedOperationException
-    override def setZeroHeight(x$1: Boolean): Unit = throw new UnsupportedOperationException
-  }
+  private[this] val xmlInput = XMLInputFactory.newFactory()
 
   override def createLogic(inheritedAttributes: Attributes): GraphStageLogic = new GraphStageLogic(shape) {
 
@@ -159,7 +163,7 @@ class XlsxSource(is: () => InputStream, sheet: String) extends GraphStage[Source
         while (sheets.hasNext && !found) {
           val ss = sheets.next()
           if (sheets.getSheetName == sheet) {
-            events = factory.createXMLEventReader(ss)
+            events = xmlInput.createXMLEventReader(ss)
             found = true
           } else {
             ss.close()

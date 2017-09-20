@@ -9,10 +9,10 @@ sealed trait ReadResult[+A] {
 
   def fold[X](error: Seq[String] => X, success: A => X): X
 
-  @inline def getOrElse[AA >: A](orElse: => AA): AA =
+  def getOrElse[AA >: A](orElse: => AA): AA =
     if (isSuccess) this.get else orElse
 
-  @inline def orElse[AA >: A](other: => ReadResult[AA]): ReadResult[AA] =
+  def orElse[AA >: A](other: => ReadResult[AA]): ReadResult[AA] =
     if (isSuccess) this else other
 
   def map[B](f: A => B): ReadResult[B] = this match {
@@ -31,7 +31,7 @@ sealed trait ReadResult[+A] {
   def filterNot(p: A => Boolean): ReadResult[A] =
     flatMap { a => if (!p(a)) ReadSuccess(a) else ReadError() }
 
-  @inline def toOption: Option[A] =
+  def toOption: Option[A] =
     if (isSuccess) Option(this.get) else None
 
   def toEither: Either[Seq[String], A] = this match {
@@ -58,7 +58,7 @@ object ReadResult {
   @inline def success[A](a: A): ReadResult[A] = ReadSuccess(a)
 
   @inline def error[A]: ReadResult[A] = ReadError()
-  @inline def error[A](error: String): ReadResult[A] = ReadError(Seq(error))
+  @inline def error[A](first: String, others: String*): ReadResult[A] = ReadError(first +: others.toSeq)
   @inline def error[A](errors: Seq[String]): ReadResult[A] = ReadError(errors)
 
 }
