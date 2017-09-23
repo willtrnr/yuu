@@ -1,9 +1,11 @@
 package net.archwill.yuu
 
+import scala.annotation.implicitNotFound
 import scala.collection.JavaConverters._
 
 import org.apache.poi.ss.usermodel.Row
 
+@implicitNotFound("No implicit reader found for type ${A}, try implementing RowReader[${A}]")
 trait RowReader[A] { self =>
 
   def read(row: Row): ReadResult[A]

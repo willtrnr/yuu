@@ -1,5 +1,7 @@
 package net.archwill.yuu
 
+import scala.annotation.implicitNotFound
+
 import java.sql.{Date => SDate, Time => STime, Timestamp => STimestamp}
 import java.time.Instant
 import java.util.Date
@@ -8,6 +10,7 @@ import org.apache.poi.ss.usermodel.{Cell, CellType, DateUtil}
 import org.apache.poi.ss.usermodel.Row.MissingCellPolicy
 import org.apache.poi.ss.util.CellReference
 
+@implicitNotFound("No implicit reader found for type ${A}, try implementing CellReader[${A}]")
 trait CellReader[A] { self =>
 
   def read(cell: Cell): ReadResult[A]

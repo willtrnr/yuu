@@ -1,7 +1,10 @@
 package net.archwill.yuu
 
+import scala.annotation.implicitNotFound
+
 import org.apache.poi.ss.usermodel.Sheet
 
+@implicitNotFound("No implicit reader found for type ${A}, try implementing SheetReader[${A}]")
 trait SheetReader[A] { self =>
 
   def read(sheet: Sheet): ReadResult[A]
