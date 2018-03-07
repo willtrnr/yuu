@@ -50,8 +50,7 @@ case class StreamingCell(address: CellAddress, valueType: String = null, style: 
       case "b" => CellType.BOOLEAN
       case "n" | "d" => CellType.NUMERIC
       case "e" => CellType.ERROR
-      case "s" | "inlineStr" => CellType.STRING
-      case "str" => CellType.STRING // This is actually a formula type column
+      case "s" | "str" | "inlineStr" => CellType.STRING // "str" is actually a formula type column
       case _ => CellType.NUMERIC
     }
   override def getColumnIndex(): Int = address.getColumn
