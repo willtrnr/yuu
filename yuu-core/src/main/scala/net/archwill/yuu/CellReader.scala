@@ -33,7 +33,7 @@ trait CellReader[A] { self =>
   }
 
   def at(col: String, row: Int): SheetReader[A] =
-    at(CellReference.convertColStringToIndex(col), row)
+    at(CellReference.convertColStringToIndex(col), row - 1) // Do -1 to match the "A1" style
 
   def opt: CellReader[Option[A]] =
     CellReader[Option[A]] { cell => ReadResult.success(self.read(cell).toOption) }
@@ -89,7 +89,7 @@ object CellReader {
     def read(cell: Cell): ReadResult[A] = f(cell)
   }
 
-  def pure[A](v: A): CellReader[A] = apply { _ => success(v) }
+  def pure[A](v: => A): CellReader[A] = apply { _ => success(v) }
 
   @inline def of[A](implicit cr: CellReader[A]): CellReader[A] = cr
 
