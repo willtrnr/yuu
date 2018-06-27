@@ -19,7 +19,7 @@ trait CellReader[A] { self =>
     if (idx >= 0)
       self.read(row.getCell(idx, MissingCellPolicy.CREATE_NULL_AS_BLANK))
     else
-      ReadResult.error("Invalid column reference")
+      ReadResult.error("Invalid column reference: " + idx)
   }
 
   def at(col: String): RowReader[A] =
@@ -29,7 +29,7 @@ trait CellReader[A] { self =>
     if (col >= 0 && row >= 0)
       self.read(sheet.getRow(row).getCell(col, MissingCellPolicy.CREATE_NULL_AS_BLANK))
     else
-      ReadResult.error("Invalid cell reference")
+      ReadResult.error(s"Invalid cell reference: ($col, $row)")
   }
 
   def at(col: String, row: Int): SheetReader[A] =
@@ -45,28 +45,28 @@ trait CellReader[A] { self =>
     CellReader[B] { cell => self.read(cell).flatMap(a => f(a).read(cell)) }
 
   def filter(p: A => Boolean): CellReader[A] =
-    CellReader[A] { cell => self.read(cell).filter(p) orElse ReadResult.error }
+    CellReader[A] { cell => self.read(cell).filter(p) orElse ReadResult.error("Filter did not match", cell.getAddress) }
 
   def filter(error: => String)(p: A => Boolean): CellReader[A] =
-    CellReader[A] { cell => self.read(cell).filter(p) orElse ReadResult.error(error) }
+    CellReader[A] { cell => self.read(cell).filter(p) orElse ReadResult.error(error, cell.getAddress) }
 
   def filterNot(p: A => Boolean): CellReader[A] =
-    CellReader[A] { cell => self.read(cell).filterNot(p) orElse ReadResult.error }
+    CellReader[A] { cell => self.read(cell).filterNot(p) orElse ReadResult.error("Filter matched", cell.getAddress) }
 
   def filterNot(error: => String)(p: A => Boolean): CellReader[A] =
-    CellReader[A] { cell => self.read(cell).filterNot(p) orElse ReadResult.error(error) }
+    CellReader[A] { cell => self.read(cell).filterNot(p) orElse ReadResult.error(error, cell.getAddress) }
 
   def collect[B](pf: PartialFunction[A, B]): CellReader[B] = CellReader[B] { cell =>
     self.read(cell) flatMap {
       case a if pf.isDefinedAt(a) => ReadResult.success(pf(a))
-      case _ => ReadResult.error
+      case _ => ReadResult.error("Partial function did not match", cell.getAddress)
     }
   }
 
   def collect[B](error: => String)(pf: PartialFunction[A, B]): CellReader[B] = CellReader[B] { cell =>
     self.read(cell) flatMap {
       case a if pf.isDefinedAt(a) => ReadResult.success(pf(a))
-      case _ => ReadResult.error(error)
+      case _ => ReadResult.error(error, cell.getAddress)
     }
   }
 
@@ -99,15 +99,15 @@ object CellReader {
     if (cell.valueType == CellType.BOOLEAN) {
       success(cell.getBooleanCellValue)
     } else {
-      error("Expected boolean cell")
+      error("Expected boolean cell", cell.getAddress)
     }
   }
 
   implicit val stringCellReader: CellReader[String] = apply { cell =>
     if (cell.valueType == CellType.STRING) {
-      success(cell.getStringCellValue)
+        success(cell.getStringCellValue)
     } else {
-      error("Expected string cell")
+        error("Expected string cell", cell.getAddress)
     }
   }
 
@@ -115,7 +115,7 @@ object CellReader {
     if (cell.valueType == CellType.NUMERIC) {
       success(cell.getNumericCellValue)
     } else {
-      error("Expected numeric cell")
+      error("Expected numeric cell", cell.getAddress)
     }
   }
 
@@ -136,9 +136,9 @@ object CellReader {
 
   implicit val dateCellReader: CellReader[Date] = apply { cell =>
     if (cell.valueType == CellType.NUMERIC && DateUtil.isCellDateFormatted(cell)) {
-      Option(DateUtil.getJavaDate(cell.getNumericCellValue)).fold(error[Date]("Not a valid date"))(success)
+      Option(DateUtil.getJavaDate(cell.getNumericCellValue)).fold(error[Date]("Not a valid date", cell.getAddress))(success)
     } else {
-      error("Expected numeric cell")
+      error("Expected numeric cell", cell.getAddress)
     }
   }
 
