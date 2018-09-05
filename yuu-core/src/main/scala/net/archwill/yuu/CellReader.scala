@@ -3,8 +3,8 @@ package net.archwill.yuu
 import scala.annotation.implicitNotFound
 
 import java.sql.{Date => SDate, Time => STime, Timestamp => STimestamp}
-import java.time.Instant
-import java.util.Date
+import java.time.{Instant, LocalDate}
+import java.util.{Calendar, Date}
 
 import org.apache.poi.ss.usermodel.{Cell, CellType, DateUtil}
 import org.apache.poi.ss.usermodel.Row.MissingCellPolicy
@@ -135,7 +135,7 @@ object CellReader {
     doubleCellReader.map(_.toFloat)
 
   implicit val dateCellReader: CellReader[Date] = apply { cell =>
-    if (cell.valueType == CellType.NUMERIC && DateUtil.isCellDateFormatted(cell)) {
+    if (cell.valueType == CellType.NUMERIC) {
       Option(DateUtil.getJavaDate(cell.getNumericCellValue)).fold(error[Date]("Not a valid date", cell.getAddress))(success)
     } else {
       error("Expected numeric cell", cell.getAddress)
@@ -153,6 +153,16 @@ object CellReader {
 
   implicit val instantCellReader: CellReader[Instant] =
     dateCellReader.map(_.toInstant)
+
+  implicit val localDateCellReader: CellReader[LocalDate] = apply { cell =>
+    if (cell.valueType == CellType.NUMERIC) {
+      Option(DateUtil.getJavaCalendar(cell.getNumericCellValue)).fold(error[LocalDate]("Not a valid date")) { cal =>
+        success(LocalDate.of(cal.get(Calendar.YEAR), cal.get(Calendar.MONTH) + 1, cal.get(Calendar.DATE)))
+      }
+    } else {
+      error("Expected numeric cell", cell.getAddress)
+    }
+  }
 
   implicit def optionCellReader[A](implicit cr: CellReader[A]): CellReader[Option[A]] = apply { cell =>
     if (cell.valueType == CellType.BLANK) {
